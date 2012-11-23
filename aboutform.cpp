@@ -20,7 +20,7 @@
 #include <QTextBrowser>
 
 
-static const QString Version("0.6.1");
+static const QString Version("0.6.2");
 
 
 AboutForm::AboutForm(QWidget *parent) : QDialog(parent)

@@ -14,8 +14,9 @@ Compiling and Installing ViewPDF
 
 Prerequisites: A C++ compiler, the Qt 4 libraries (at least Qt 4.6), 
 the Poppler libraries (including Poppler's Qt 4 headers; at least
-version 0.20), the enchant library, and at least one spelling library
-for enchant to use and at least one spelling dictionary.
+0.18; but 0.20.4 or later is recommended), the enchant library, and at
+least one spelling library for enchant to use and at least one spelling
+dictionary.
 
 1. Unpack the archive file, viewpdf-XXX.tar.gz
     $ tar xvfz viewpdf-XXX.tar.gz

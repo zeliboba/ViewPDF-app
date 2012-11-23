@@ -19,6 +19,7 @@
 #include <QtDebug>
 #endif
 #include <cmath>
+#include <poppler-version.h>
 #include <QApplication>
 #include <QDockWidget>
 #include <QBoxLayout>
@@ -672,8 +673,11 @@ QPair<QString, QList<RectDetails> > MainWindow::getAnnotations()
 AnnotationDetails MainWindow::getAnnotationDetails(
         Poppler::Annotation *annotation)
 {
-    //QString action = annotation->window.summary; // Prior to Poppler 0.20
-    QString action = annotation->popup().summary(); // After Poppler 0.20
+#if POPPLER_VERSION_MAJOR == 0 && POPPLER_VERSION_MINOR < 20
+    QString action = annotation->window.summary;
+#else
+    QString action = annotation->popup().summary();
+#endif
     if (action == "Replacement Text")
         action = tr("Replace with");
     else if (action == "Inserted Text")
@@ -688,7 +692,7 @@ AnnotationDetails MainWindow::getAnnotationDetails(
     QColor color = Qt::transparent;
     QStringList texts;
     bool isHighlighted = false;
-    QString text = Qt::escape(annotation->contents().simplified());
+    QString text = annotation->contents().simplified();
     Poppler::CaretAnnotation *caret =
         dynamic_cast<Poppler::CaretAnnotation*>(annotation);
     if (caret) {
