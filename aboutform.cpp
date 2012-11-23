@@ -20,7 +20,7 @@
 #include <QTextBrowser>
 
 
-static const QString Version("0.5.0");
+static const QString Version("0.6.0");
 
 
 AboutForm::AboutForm(QWidget *parent) : QDialog(parent)
@@ -38,8 +38,8 @@ AboutForm::AboutForm(QWidget *parent) : QDialog(parent)
     "</td></tr>"
     "<tr><td colspan=2>Built with Qt %3 and Poppler %4.</td></tr>"
     "</table><hr>"
-    "<p>This program views PDF files, clearly showing annotations, "
-    "double-words, and spelling mistakes."
+    "<p>This program shows PDF files, clearly indicating annotations "
+    "and possible mistakes (such as spelling errors)."
     "<hr><p>If you like %1 you might like my books:<ul>"
     "<li><a href=\"http://www.qtrac.eu/gobook.html\">"
     "Programming in Go</a></li>"
@@ -53,6 +53,11 @@ AboutForm::AboutForm(QWidget *parent) : QDialog(parent)
     "I also provide training and consultancy in C++, Go, Python&nbsp;2, "
     "Python&nbsp;3, C++/Qt, and PyQt4.").arg(qApp->applicationName())
             .arg(Version).arg(qVersion()).arg(POPPLER_VERSION));
+    QTextBrowser *contributorsBrowser = new QTextBrowser;
+    contributorsBrowser->setReadOnly(true);
+    contributorsBrowser->setHtml(tr("<ul>"
+    "<li><b>Dirk Loss</b> &mdash; creating Mac binaries</li>"
+    "</ul>"));
     QTextBrowser *licenceBrowser = new QTextBrowser;
     licenceBrowser->setReadOnly(true);
     licenceBrowser->setHtml(tr(
@@ -67,6 +72,7 @@ AboutForm::AboutForm(QWidget *parent) : QDialog(parent)
     "for more details."));
     QTabWidget *tabWidget = new QTabWidget;
     tabWidget->addTab(aboutBrowser, tr("&About"));
+    tabWidget->addTab(contributorsBrowser, tr("&Contributors"));
     tabWidget->addTab(licenceBrowser, tr("&License"));
     QHBoxLayout *layout = new QHBoxLayout;
     layout->addWidget(tabWidget);

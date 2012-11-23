@@ -1,4 +1,5 @@
 syntax: glob
+NOTES.txt
 sample.pdf
 words.lst
 viewpdf

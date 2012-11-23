@@ -37,11 +37,22 @@ struct RectDetails {
 struct AnnotationDetails {
 
     AnnotationDetails(const QStringList &texts_, const QRectF &rect_,
-                      const bool isHighlighted_, const QColor &color_)
-        : texts(texts_), rectDetails(rect_, isHighlighted_, color_) {}
+                      const bool isHighlighted_, const QColor &color_
+#ifdef SHOW_DELETED
+                      , const QList<QRectF> quadRects_
+#endif
+                      )
+        : texts(texts_), rectDetails(rect_, isHighlighted_, color_)
+#ifdef SHOW_DELETED
+          , quadRects(quadRects_)
+#endif
+        {}
 
     const QStringList texts;
     const RectDetails rectDetails;
+#ifdef SHOW_DELETED
+    const QList<QRectF> quadRects;
+#endif
 
 #if QT_VERSION < 0x040700
     AnnotationDetails() {}

@@ -4,7 +4,9 @@
 # help.html
 # viewpdf.1
 #DEFINES	     += DEBUG
-DEFINES	     += POPPLER_ANNOTATION_BOUNDARY_BUG
+DEFINES	     += MY_BOUNDARY_BUG
+#DEFINES	     += DEBUG_KIND
+#DEFINES	     += DEBUG_SPELLING
 #DEFINES	     += SHOW_DELETED
 CONFIG	     += console
 HEADERS	     += common.hpp
@@ -12,6 +14,8 @@ HEADERS	     += textbox.hpp
 HEADERS	     += annotation.hpp
 HEADERS	     += mainwindow.hpp
 SOURCES      += mainwindow.cpp
+HEADERS	     += scrollarea.hpp
+SOURCES      += scrollarea.cpp
 HEADERS	     += helpform.hpp
 SOURCES      += helpform.cpp
 HEADERS	     += aboutform.hpp
@@ -33,4 +37,8 @@ exists($(HOME)/opt/poppler018/) {
 	INCLUDEPATH += /usr/local/include/poppler/qt4
     }
 }
-INCLUDEPATH += /usr/include/enchant
+exists(/usr/include/enchant) {
+    INCLUDEPATH += /usr/include/enchant
+} else {
+    INCLUDEPATH += /usr/local/include/enchant
+}

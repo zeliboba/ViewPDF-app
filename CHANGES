@@ -1,3 +1,18 @@
+0.6.0
+
+- Strip out accents for English spell checking.
+- Dictionary's initial default is now the locale's language.
+- Improved navigability of the page view: PageUp and PageDown will
+  now navigate to the previous or next page if at the top or bottom of
+  the current page.
+- The Annotations view now has Previous and Next buttons to navigate to
+  the previous or next page that has an annotation on it.
+
+0.5.1
+
+Added a spelling check for words starting with two uppercase letters
+followed by a lowercase letter.
+
 0.5.0
 
 First release.

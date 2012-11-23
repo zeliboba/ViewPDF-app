@@ -20,11 +20,13 @@
 namespace enchant {
     class Dict;
 }
+class Label;
 class QDockWidget;
 class QLabel;
 class QPushButton;
 class QScrollArea;
 class QSpinBox;
+class QStackedWidget;
 class QTextBrowser;
 
 
@@ -56,6 +58,11 @@ private slots:
     QPair<QString, QList<RectDetails> > getAnnotations();
     void loadDictionary();
     void changeLanguage();
+    void previousPage();
+    void nextPage();
+    void previousAnnotatedPage();
+    void nextAnnotatedPage();
+    void annotationDockLocationChanged(Qt::DockWidgetArea area);
 
 private:
     void createWidgets();
@@ -79,6 +86,8 @@ private:
     QString trim(const QString &word_);
     QString rtrim(const QString &word_);
     void drawZigZagLine(QPainter *painter, const QRectF &rect);
+    bool hasRecognizedAnnotation(
+            const QList<Poppler::Annotation*> &annotations);
 
     QLabel *view;
     QScrollArea *area;
@@ -100,7 +109,11 @@ private:
     QPushButton *languageButton;
     Qt::DockWidgetArea annotationsDockArea;
     QDockWidget *annotationsDockWidget;
-    QTextBrowser *annotationsView;
+    QPushButton *previousAnnotatedPageButton[2];
+    QPushButton *nextAnnotatedPageButton[2];
+    QTextBrowser *annotationsView[2];
+    QStackedWidget *annotationStack;
+    int activeAnnotations;
 
     QString currentPath;
     QString fileName;

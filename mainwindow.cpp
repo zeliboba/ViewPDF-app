@@ -12,6 +12,7 @@
 
 #include "aboutform.hpp"
 #include "helpform.hpp"
+#include "scrollarea.hpp"
 #include "mainwindow.hpp"
 #include "enchant++.h"
 #if defined DEBUG || defined DEBUG_KIND || defined DEBUG_SPELLING
@@ -24,14 +25,17 @@
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QLabel>
+#include <QLocale>
 #include <QMap>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPixmapCache>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QTextBrowser>
 #include <QTextStream>
 
@@ -49,7 +53,7 @@ MainWindow::MainWindow(const QString &filename, int number,
     : QMainWindow(parent),
       controlDockArea(Qt::RightDockWidgetArea),
       spellingDockArea(Qt::RightDockWidgetArea),
-      annotationsDockArea(Qt::BottomDockWidgetArea),
+      annotationsDockArea(Qt::BottomDockWidgetArea), activeAnnotations(0),
       currentPath("."), dictionary(0)
 {
     createWidgets();
@@ -61,6 +65,9 @@ MainWindow::MainWindow(const QString &filename, int number,
     restoreState(settings.value("MainWindow/State").toByteArray());
     controlDockWidget->resize(controlDockWidget->minimumSizeHint());
     spellingDockWidget->resize(spellingDockWidget->minimumSizeHint());
+    annotationDockLocationChanged(static_cast<Qt::DockWidgetArea>(
+                settings.value("MainWindow/AnnotationDockArea",
+                        static_cast<int>(annotationsDockArea)).toInt()));
     annotationsDockWidget->resize(
             annotationsDockWidget->minimumSizeHint());
     setWindowTitle(qApp->applicationName());
@@ -69,6 +76,7 @@ MainWindow::MainWindow(const QString &filename, int number,
     if (!filename.isEmpty()) {
         fileOpen(filename);
         pageSpinBox->setValue(number ? number : pageSpinBox->minimum());
+        view->setFocus();
     }
 }
 
@@ -85,7 +93,7 @@ void MainWindow::createWidgets()
 
     view = new QLabel;
     view->setAlignment(Qt::AlignCenter);
-    area = new QScrollArea;
+    area = new ScrollArea;
     area->setWidget(view);
     area->setWidgetResizable(true);
     setCentralWidget(area);
@@ -103,12 +111,14 @@ void MainWindow::createWidgets()
     fileOpenButton = new QPushButton(tr("&Open..."));
     pageLabel = new QLabel(tr("&Page:"));
     pageSpinBox = new QSpinBox;
+    pageSpinBox->setAlignment(Qt::AlignVCenter|Qt::AlignRight);
     pageLabel->setBuddy(pageSpinBox);
     zoomLabel = new QLabel(tr("&Zoom:"));
     zoomSpinBox = new QSpinBox;
     zoomLabel->setBuddy(zoomSpinBox);
+    zoomSpinBox->setAlignment(Qt::AlignVCenter|Qt::AlignRight);
     zoomSpinBox->setRange(20, 800);
-    zoomSpinBox->setSuffix(tr(" %"));
+    zoomSpinBox->setSuffix(tr("%"));
     zoomSpinBox->setSingleStep(10);
     zoomSpinBox->setValue(settings.value("MainWindow/Zoom", "100")
             .toInt());
@@ -133,11 +143,20 @@ void MainWindow::createWidgets()
     annotationsDockWidget->setObjectName("Annotations");
     annotationsDockWidget->setFeatures(features|
             QDockWidget::DockWidgetClosable);
-    annotationsView = new QTextBrowser;
+    annotationsView[0] = new QTextBrowser;
+    annotationsView[1] = new QTextBrowser;
+    previousAnnotatedPageButton[0] = new QPushButton(tr("Pre&vious"));
+    previousAnnotatedPageButton[1] = new QPushButton(tr("Pre&vious"));
+    nextAnnotatedPageButton[0] = new QPushButton(tr("&Next"));
+    nextAnnotatedPageButton[1] = new QPushButton(tr("&Next"));
+    annotationStack = new QStackedWidget;
 
     foreach (QPushButton *button, QList<QPushButton*>() << fileOpenButton
             << aboutButton << helpButton << quitButton << addWordButton
-            << removeWordButton << languageButton)
+            << removeWordButton << languageButton
+            << previousAnnotatedPageButton[0]
+            << previousAnnotatedPageButton[1]
+            << nextAnnotatedPageButton[0] << nextAnnotatedPageButton[1])
         button->setFocusPolicy(Qt::NoFocus);
 }
 
@@ -174,7 +193,24 @@ void MainWindow::createLayouts()
     spellingDockWidget->setWidget(widget);
     addDockWidget(spellingDockArea, spellingDockWidget);
 
-    annotationsDockWidget->setWidget(annotationsView);
+    QVBoxLayout *annotationVLayout = new QVBoxLayout;
+    annotationVLayout->addWidget(previousAnnotatedPageButton[0]);
+    annotationVLayout->addWidget(nextAnnotatedPageButton[0]);
+    annotationVLayout->addWidget(annotationsView[0]);
+    widget = new QWidget;
+    widget->setLayout(annotationVLayout);
+    annotationStack->addWidget(widget);
+    QHBoxLayout *annotationHLayout = new QHBoxLayout;
+    QVBoxLayout *buttonLayout = new QVBoxLayout;
+    buttonLayout->addWidget(previousAnnotatedPageButton[1]);
+    buttonLayout->addWidget(nextAnnotatedPageButton[1]);
+    buttonLayout->addStretch();
+    annotationHLayout->addLayout(buttonLayout);
+    annotationHLayout->addWidget(annotationsView[1]);
+    widget = new QWidget;
+    widget->setLayout(annotationHLayout);
+    annotationStack->addWidget(widget);
+    annotationsDockWidget->setWidget(annotationStack);
     addDockWidget(annotationsDockArea, annotationsDockWidget);
 }
 
@@ -195,6 +231,18 @@ void MainWindow::createConnections()
     connect(languageButton, SIGNAL(clicked()),
             this, SLOT(changeLanguage()));
 
+    connect(area, SIGNAL(previousPage()), this, SLOT(previousPage()));
+    connect(area, SIGNAL(nextPage()), this, SLOT(nextPage()));
+
+    connect(previousAnnotatedPageButton[0], SIGNAL(clicked()),
+            this, SLOT(previousAnnotatedPage()));
+    connect(previousAnnotatedPageButton[1], SIGNAL(clicked()),
+            this, SLOT(previousAnnotatedPage()));
+    connect(nextAnnotatedPageButton[0], SIGNAL(clicked()),
+            this, SLOT(nextAnnotatedPage()));
+    connect(nextAnnotatedPageButton[1], SIGNAL(clicked()),
+            this, SLOT(nextAnnotatedPage()));
+
     connect(controlDockWidget, SIGNAL(topLevelChanged(bool)),
             this, SLOT(controlTopLevelChanged(bool)));
     connect(spellingDockWidget, SIGNAL(topLevelChanged(bool)),
@@ -205,6 +253,9 @@ void MainWindow::createConnections()
             this, SLOT(annotationsTopLevelChanged(bool)));
     connect(annotationsDockWidget, SIGNAL(visibilityChanged(bool)),
             this, SLOT(updateUi()));
+    connect(annotationsDockWidget,
+            SIGNAL(dockLocationChanged(Qt::DockWidgetArea)),
+            this, SLOT(annotationDockLocationChanged(Qt::DockWidgetArea)));
 }
 
 
@@ -216,6 +267,8 @@ void MainWindow::closeEvent(QCloseEvent*)
     settings.setValue("MainWindow/State", saveState());
     settings.setValue("MainWindow/Zoom", zoomSpinBox->value());
     settings.setValue("Language", dictionaryLanguage);
+    settings.setValue("MainWindow/AnnotationDockArea",
+                      static_cast<int>(annotationsDockArea));
     QMainWindow::close();
 }
 
@@ -241,6 +294,15 @@ void MainWindow::annotationsTopLevelChanged(bool floating)
     annotationsDockWidget->setWindowTitle(floating
             ? tr("%1 — Annotations").arg(qApp->applicationName())
             : tr("Annotations"));
+}
+
+
+void MainWindow::annotationDockLocationChanged(Qt::DockWidgetArea area)
+{
+    activeAnnotations = (area == Qt::TopDockWidgetArea ||
+                         area == Qt::BottomDockWidgetArea) ? 1 : 0;
+    annotationStack->setCurrentIndex(activeAnnotations);
+    annotationsDockArea = area;
 }
 
 
@@ -298,6 +360,7 @@ void MainWindow::loadPdf()
 #endif
     }
     updateUi();
+    view->setFocus();
 }
 
 
@@ -382,10 +445,17 @@ void MainWindow::updatePage()
     page = PdfPage(pdf->page(number - 1));
     if (!annotationsForPage.contains(number))
         annotationsForPage.insert(number, getAnnotations());
-    if (annotationsDockWidget->isVisible())
-        annotationsView->setHtml(annotationsForPage.value(number).first);
-    else
-        annotationsView->clear();
+    if (annotationsDockWidget->isVisible()) {
+        // Cheaper to duplicate the text than to refresh the page view
+        annotationsView[0]->setHtml(
+                annotationsForPage.value(number).first);
+        annotationsView[1]->setHtml(
+                annotationsForPage.value(number).first);
+    }
+    else {
+        annotationsView[0]->clear();
+        annotationsView[1]->clear();
+    }
     if (!textsForPage.contains(number))
         textsForPage.insert(number, getTexts());
     const int DPI = static_cast<int>(72.0 *
@@ -418,6 +488,66 @@ void MainWindow::about()
 {
     AboutForm *form = new AboutForm(this);
     form->show();
+}
+
+
+void MainWindow::previousPage()
+{
+    int index = pageSpinBox->value();
+    if (index > 0) {
+        pageSpinBox->setValue(index - 1);
+        area->verticalScrollBar()->setValue(0);
+    }
+}
+
+
+void MainWindow::nextPage()
+{
+    int index = pageSpinBox->value();
+    if (index < pageSpinBox->maximum()) {
+        pageSpinBox->setValue(index + 1);
+        area->verticalScrollBar()->setValue(0);
+    }
+}
+
+
+void MainWindow::previousAnnotatedPage()
+{
+    if (!pdf)
+        return;
+    int number = pageSpinBox->value();
+    while (--number > 0) {
+        PdfPage prevPage(pdf->page(number - 1));
+        if (!prevPage)
+            return;
+        QList<Poppler::Annotation*> annotations = prevPage->annotations();
+        bool hasAnnotations = hasRecognizedAnnotation(annotations);
+        qDeleteAll(annotations);
+        if (hasAnnotations) {
+            pageSpinBox->setValue(number);
+            break;
+        }
+    }
+}
+
+
+void MainWindow::nextAnnotatedPage()
+{
+    if (!pdf)
+        return;
+    int number = pageSpinBox->value();
+    while (++number <= pageSpinBox->maximum()) {
+        PdfPage nextPage(pdf->page(number - 1));
+        if (!nextPage)
+            return;
+        QList<Poppler::Annotation*> annotations = nextPage->annotations();
+        bool hasAnnotations = hasRecognizedAnnotation(annotations);
+        qDeleteAll(annotations);
+        if (hasAnnotations) {
+            pageSpinBox->setValue(number);
+            break;
+        }
+    }
 }
 
 
@@ -551,6 +681,9 @@ AnnotationDetails MainWindow::getAnnotationDetails(
         action = tr("Delete");
     else if (action == "Comment on Text")
         action = tr("Comment");
+#ifdef SHOW_DELETED
+    QList<QRectF> quadRects;
+#endif
     QColor color = Qt::transparent;
     QStringList texts;
     bool isHighlighted = false;
@@ -558,8 +691,13 @@ AnnotationDetails MainWindow::getAnnotationDetails(
     Poppler::CaretAnnotation *caret =
         dynamic_cast<Poppler::CaretAnnotation*>(annotation);
     if (caret) {
-        texts << tr("<i>%1:</i> <font color=\"blue\">%2</font>")
-                 .arg(action.isEmpty() ? tr("Insert") : action).arg(text);
+        if (!text.isEmpty())
+            texts << tr("<i>%1:</i> <font color=\"blue\">%2</font>")
+                    .arg(action.isEmpty() ? tr("Insert") : action)
+                    .arg(text);
+        else
+            texts << tr("<i>%1</i>").arg(action.isEmpty() ? tr("Insert")
+                                                          : action);
         color = QColor(0, 0, 0xFF, 0x37); // semi-transparent blue
 #ifdef DEBUG_KIND
         kind = "Caret";
@@ -571,14 +709,26 @@ AnnotationDetails MainWindow::getAnnotationDetails(
         if (highlight->highlightType() ==
             Poppler::HighlightAnnotation::StrikeOut) {
 #ifdef SHOW_DELETED
+            QList<Poppler::HighlightAnnotation::Quad> quads =
+                highlight->highlightQuads();
+            foreach (const Poppler::HighlightAnnotation::Quad &quad, quads)
+// TODO I need to find out what these points mean; they don't seem to be
+// top-left & bottom-right?
+                quadRects << QRectF(quad.points[0], quad.points[2]);
 // This should get the text that is to be deleted so that it can be
-// shown in the annotations view; but it doesn't work with poppler 0.18
-// or 0.19.
+// shown in the annotations view; but it doesn't work
             if (text.isEmpty() && view->pixmap() &&
-                !view->pixmap()->isNull()) {
-                const QRectF &rect = adjustRect(annotation->boundary(),
-                        view->pixmap()->width(), view->pixmap()->height());
-                text = page->text(rect);
+                !view->pixmap()->isNull() && !quadRects.isEmpty()) {
+                foreach (QRectF rect, quadRects) {
+                    rect = adjustRect(rect, view->pixmap()->width(),
+                            view->pixmap()->height());
+                    text = page->text(rect);
+#ifdef DEBUG
+qDebug() << rect.toRect() << text;
+#endif
+                    if (!text.isEmpty())
+                        break;
+                }
             }
 #endif
             if (!text.isEmpty())
@@ -586,8 +736,8 @@ AnnotationDetails MainWindow::getAnnotationDetails(
                     .arg(action.isEmpty() ? tr("Delete") : action)
                     .arg(text);
             else
-                texts << tr("<i>%1</i>")
-                    .arg(action.isEmpty() ? tr("Delete") : action);
+                texts << tr("<i>%1</i>").arg(action.isEmpty()
+                        ? tr("Delete") : action);
             color = QColor(0xFF, 0, 0, 0x37); // semi-transparent red
 #ifdef DEBUG_KIND
             kind = "Highlight";
@@ -595,9 +745,13 @@ AnnotationDetails MainWindow::getAnnotationDetails(
         }
         else {
             isHighlighted = true;
-            texts << tr("<i>%1:</i> <font color=\"#8B4513\">%2</font>")
-                .arg(action.isEmpty() ? tr("Highlight Note") : action)
-                .arg(text);
+            if (!text.isEmpty())
+                texts << tr("<i>%1:</i> <font color=\"#8B4513\">%2</font>")
+                    .arg(action.isEmpty() ? tr("Highlight Note") : action)
+                    .arg(text);
+            else
+                texts << tr("<i>%1</i>").arg(action.isEmpty()
+                        ? tr("Highlight Note") : action);
 #ifdef DEBUG_KIND
             kind = "Highlighted Note";
 #endif
@@ -606,8 +760,12 @@ AnnotationDetails MainWindow::getAnnotationDetails(
     Poppler::TextAnnotation *note =
         dynamic_cast<Poppler::TextAnnotation*>(annotation);
     if (note) {
-        texts << tr("<i>%1:</i> <font color=\"#8B4513\">%2</font>")
-            .arg(action.isEmpty() ? tr("Note") : action).arg(text);
+        if (!text.isEmpty())
+            texts << tr("<i>%1:</i> <font color=\"#8B4513\">%2</font>")
+                .arg(action.isEmpty() ? tr("Note") : action).arg(text);
+        else
+            texts << tr("<i>%1</i>").arg(action.isEmpty() ? tr("Note")
+                                                          : action);
 #ifdef DEBUG_KIND
         kind = "Note";
 #endif
@@ -648,7 +806,7 @@ AnnotationDetails MainWindow::getAnnotationDetails(
     qDebug() << kind << ":" << text;
 #endif
     QRectF rect = annotation->boundary();
-#ifdef POPPLER_ANNOTATION_BOUNDARY_BUG
+#ifdef MY_BOUNDARY_BUG
     const double Size = 0.015;
     if (rect.width() > 0.1 || rect.height() > 0.1) {
         QPointF topLeft = rect.topRight();
@@ -658,7 +816,26 @@ AnnotationDetails MainWindow::getAnnotationDetails(
         rect = QRectF(topLeft, bottomRight);
     }
 #endif
+#ifdef SHOW_DELETED
+    return AnnotationDetails(texts, rect, isHighlighted, color, quadRects);
+#else
     return AnnotationDetails(texts, rect, isHighlighted, color);
+#endif
+}
+
+
+bool MainWindow::hasRecognizedAnnotation(
+            const QList<Poppler::Annotation*> &annotations)
+{
+    foreach (Poppler::Annotation *annotation, annotations) {
+        switch (annotation->subType()) {
+            case Poppler::Annotation::AText:    // fallthrough
+            case Poppler::Annotation::ACaret:   // fallthrough
+            case Poppler::Annotation::AHighlight: return true;
+            default: break; // ignore other enum values
+        }
+    }
+    return false;
 }
 
 
@@ -678,19 +855,20 @@ while (i.hasNext()) {
 }
 #endif
     int spellCount = 0;
-    int doubleCount = 0;
+    int queryCount = 0;
     const double FACTOR = zoomSpinBox->value() / 100.0;
     QPen spellingPen(Qt::red, 1.5);
-    QPen doubleWordPen(Qt::green, 1.5);
+    QPen queryWordPen(Qt::green, 1.5);
     QPainter painter(image);
     painter.setPen(spellingPen);
     const QList<TextBox> boxes = textForYx.values();
     for (int i = 0; i < boxes.count(); ++i) {
         const TextBox &box = boxes.at(i);
         const QRectF rect = adjustRect(box.rect, FACTOR, FACTOR);
+        // double-word check
         if (i > 0 && box.word.length() > 1 &&
             box.word.toLower() == boxes.at(i - 1).word.toLower()) {
-            painter.setPen(doubleWordPen);
+            painter.setPen(queryWordPen);
             QRectF lineRect = rect;
             lineRect.setBottom(lineRect.bottom() + Margin);
             drawZigZagLine(&painter, lineRect);
@@ -698,7 +876,7 @@ while (i.hasNext()) {
             lineRect.setBottom(lineRect.bottom() + Margin);
             drawZigZagLine(&painter, lineRect);
             painter.setPen(spellingPen);
-            ++doubleCount;
+            ++queryCount;
         }
         if (box.word.length() <= 1)
             continue; // Skip single character "words"
@@ -728,10 +906,20 @@ while (i.hasNext()) {
                            box.word)))
                 continue;
         }
+        // upper-upper-lower check (but only if a misspelling)
+        if (box.word.length() > 2 && box.word.at(0).isUpper() &&
+            box.word.at(1).isUpper() && box.word.at(2).isLower()) {
+            painter.setPen(queryWordPen);
+            QRectF lineRect = rect;
+            lineRect.setBottom(lineRect.bottom() + Margin);
+            drawZigZagLine(&painter, lineRect);
+            painter.setPen(spellingPen);
+            ++queryCount;
+        }
         ++spellCount;
         drawZigZagLine(&painter, rect);
     }
-    if (spellCount || doubleCount) {
+    if (spellCount || queryCount) {
         QFontMetricsF fm = painter.fontMetrics();
         double x = Margin;
         double Y0 = fm.height();
@@ -743,17 +931,18 @@ while (i.hasNext()) {
         drawZigZagLine(&painter, QRectF(QPointF(x, Y1 + Margin),
             QPointF(fm.width(text) + Margin, Y1 + Margin)));
         x += fm.width(text) + Margin;
-        if (doubleCount) {
+        if (queryCount) {
             painter.setPen(Qt::gray);
             text = QChar(0x2022);
             painter.setPen(Qt::darkGray);
             painter.drawText(x, Y0, text);
             x += fm.width(text) + Margin;
-            text = QString::number(doubleCount);
+            text = QString::number(queryCount);
             painter.drawText(x, Y0, text);
             double x1 = x + fm.width(text);
-            painter.setPen(doubleWordPen);
-            painter.drawLine(x, Y1, x1, Y1);
+            painter.setPen(queryWordPen);
+            drawZigZagLine(&painter, QRectF(QPointF(x, Y1 + Margin),
+                        QPointF(x1, Y1 + Margin)));
         }
     }
 }
@@ -895,10 +1084,65 @@ QStringList MainWindow::wordsForText(const QString &text)
         }
         if (dictionaryLanguage.startsWith("en")) {
             switch (c.unicode()) {
-            case 0xE6:   result += "ae"; continue; // æ
+            case 0xC0:   // fallthrough À
+            case 0xC1:   // fallthrough Á
+            case 0xC2:   // fallthrough Â
+            case 0xC3:   // fallthrough Ã
+            case 0xC4:   // fallthrough Ä
+            case 0xC5:   result +="A"; continue; // Å
             case 0xC6:   result += "AE"; continue; // Æ
+            case 0xC7:   result += "C"; continue; // Ç
+            case 0xC8:   // fallthrough È
+            case 0xC9:   // fallthrough É
+            case 0xCA:   // fallthrough Ê
+            case 0xCB:   result += "E"; continue; // Ë
+            case 0xCC:   // fallthrough Ì
+            case 0xCD:   // fallthrough Í
+            case 0xCE:   // fallthrough Î
+            case 0xCF:   result += "I"; continue; // Ï
+            case 0xD0:   result += "D"; continue; // Ð
+            case 0xD1:   result += "N"; continue; // Ñ
+            case 0xD2:   // fallthrough Ò
+            case 0xD3:   // fallthrough Ó
+            case 0xD4:   // fallthrough Ô
+            case 0xD5:   // fallthrough Õ
+            case 0xD6:   // fallthrough Ö
+            case 0xD8:   result += "O"; continue; //Ø
+            case 0xD9:   // fallthrough Ù
+            case 0xDA:   // fallthrough Ú
+            case 0xDB:   // fallthrough Û
+            case 0xDC:   result += "U"; continue; // Ü
+            case 0xDD:   result += "Y"; continue; // Ý
+            case 0xE0:   // fallthrough à
+            case 0xE1:   // fallthrough á
+            case 0xE2:   // fallthrough â
+            case 0xE3:   // fallthrough ã
+            case 0xE4:   // fallthrough ä
+            case 0xE5:   result += "a"; continue; // å
+            case 0xE6:   result += "ae"; continue; // æ
+            case 0xE7:   result += "c"; continue; // ç
+            case 0xE8:   // fallthrough è
+            case 0xE9:   // fallthrough é
+            case 0xEA:   // fallthrough ê
+            case 0xEB:   result += "e"; continue; // ë
+            case 0xEC:   // fallthrough ì
+            case 0xED:   // fallthrough í
+            case 0xEE:   // fallthrough î
             case 0xEF:   result += "i"; continue; // ï
-            case 0xCF:   result += "i"; continue; // Ï
+            case 0xF1:   result += "n"; continue; // ñ
+            case 0xF0:   // fallthrough ð
+            case 0xF2:   // fallthrough ò
+            case 0xF3:   // fallthrough ó
+            case 0xF4:   // fallthrough ô
+            case 0xF5:   // fallthrough õ
+            case 0xF6:   // fallthrough ö
+            case 0xF8:   result += "o"; continue; // ø
+            case 0xF9:   // fallthrough ù
+            case 0xFA:   // fallthrough ú
+            case 0xFB:   // fallthrough û
+            case 0xFC:   result += "u"; continue; //ü
+            case 0xFD:   // fallthrough ý
+            case 0xFF:   result += "y"; continue; // ÿ
             }
         }
         if (c == Apostrophe) // for don't, doesn't, etc., enchant expects
@@ -959,7 +1203,8 @@ void addDictionaryLanguage(const char * const language, const char * const,
 void MainWindow::loadDictionary()
 {
     QSettings settings;
-    dictionaryLanguage = settings.value("Language", "en_US").toString();
+    dictionaryLanguage = settings.value("Language",
+            QLocale::system().name()).toString();
     try {
         enchant::Broker *broker = enchant::Broker::instance();
         broker->list_dicts(addDictionaryLanguage, this);

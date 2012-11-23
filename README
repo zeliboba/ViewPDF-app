@@ -3,8 +3,8 @@ ViewPDF
 
 ViewPDF is used to view PDF files.
 
-ViewPDF views PDF files, clearly showing annotations, double-words, and
-spelling mistakes.
+ViewPDF shows PDF files, clearly indicating annotations and possible
+mistakes (such as spelling errors).
 
 Home page: http://www.qtrac.eu/viewpdf.html
 
