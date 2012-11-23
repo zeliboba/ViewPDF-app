@@ -553,7 +553,7 @@ void MainWindow::nextAnnotatedPage()
 
 void MainWindow::help()
 {
-    HelpForm *form = new HelpForm(this);
+    HelpForm *form = new HelpForm("en", this);
     form->show();
 }
 
@@ -672,7 +672,8 @@ QPair<QString, QList<RectDetails> > MainWindow::getAnnotations()
 AnnotationDetails MainWindow::getAnnotationDetails(
         Poppler::Annotation *annotation)
 {
-    QString action = annotation->window.summary;
+    //QString action = annotation->window.summary; // Prior to Poppler 0.20
+    QString action = annotation->popup().summary(); // After Poppler 0.20
     if (action == "Replacement Text")
         action = tr("Replace with");
     else if (action == "Inserted Text")

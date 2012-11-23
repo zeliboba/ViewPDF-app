@@ -1,3 +1,10 @@
+0.6.1
+
+- Tiny navigation improvement: Space now acts the same as PageDown.
+
+- Tiny bugfix to the .pro file. This version _requires_ Poppler 0.20 or
+  later (prior versions will only build with Poppler 0.19 or 0.18).
+
 0.6.0
 
 - Strip out accents for English spell checking.

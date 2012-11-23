@@ -20,7 +20,7 @@
 #include <QTextBrowser>
 
 
-static const QString Version("0.6.0");
+static const QString Version("0.6.1");
 
 
 AboutForm::AboutForm(QWidget *parent) : QDialog(parent)
@@ -57,6 +57,7 @@ AboutForm::AboutForm(QWidget *parent) : QDialog(parent)
     contributorsBrowser->setReadOnly(true);
     contributorsBrowser->setHtml(tr("<ul>"
     "<li><b>Dirk Loss</b> &mdash; creating Mac binaries</li>"
+    "<li>Kyrill Detinov &mdash; creating SUSE package</li>"
     "</ul>"));
     QTextBrowser *licenceBrowser = new QTextBrowser;
     licenceBrowser->setReadOnly(true);

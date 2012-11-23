@@ -27,6 +27,14 @@ void ScrollArea::keyPressEvent(QKeyEvent *event)
                 return;
             }
             break;
+        case Qt::Key_Space:
+            if (scrollbar->value() == scrollbar->maximum()) {
+                emit nextPage();
+                return;
+            }
+            scrollbar->setValue(scrollbar->value() +
+                    scrollbar->pageStep());
+            return;
         case Qt::Key_PageDown:
             if (scrollbar->value() == scrollbar->maximum()) {
                 emit nextPage();

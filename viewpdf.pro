@@ -8,7 +8,7 @@ DEFINES	     += MY_BOUNDARY_BUG
 #DEFINES	     += DEBUG_KIND
 #DEFINES	     += DEBUG_SPELLING
 #DEFINES	     += SHOW_DELETED
-CONFIG	     += console
+CONFIG	     += console warn_on
 HEADERS	     += common.hpp
 HEADERS	     += textbox.hpp
 HEADERS	     += annotation.hpp
@@ -23,11 +23,11 @@ SOURCES      += aboutform.cpp
 SOURCES      += main.cpp
 RESOURCES    += resources.qrc
 LIBS	     += -lpoppler-qt4 -lenchant
-exists($(HOME)/opt/poppler018/) {
+exists($(HOME)/opt/poppler020/) {
     message(Using locally built Poppler library)
-    INCLUDEPATH += $(HOME)/opt/poppler018/include/poppler/cpp
-    INCLUDEPATH += $(HOME)/opt/poppler018/include/poppler/qt4
-    LIBS += -Wl,-rpath -Wl,$(HOME)/opt/poppler018/lib -Wl,-L$(HOME)/opt/poppler018/lib
+    INCLUDEPATH += $(HOME)/opt/poppler020/include/poppler/cpp
+    INCLUDEPATH += $(HOME)/opt/poppler020/include/poppler/qt4
+    LIBS += -Wl,-rpath -Wl,$(HOME)/opt/poppler020/lib -L$(HOME)/opt/poppler020/lib
 } else {
     exists(/usr/include/poppler/qt4) {
 	INCLUDEPATH += /usr/include/poppler/cpp
