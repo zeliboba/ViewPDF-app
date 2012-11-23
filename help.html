@@ -1,0 +1,36 @@
+<h2><font color="darkgreen">ViewPDF</font></h2>
+
+<ul>
+<li><a href="#use">Usage</a></li>
+<li><a href="#dock">Dock Windows</a></li>
+<li><a href="#cli">Command Line Usage</a></li>
+</ul>
+
+<h3 id="use">Usage</h3>
+<p>Click the <b>Open</b> button to choose a PDF file to view. If the
+Spelling dock window is visible any spelling mistakes or double-words
+will be highlighted. If the annotations dock window is visible any
+annotations will be visible. (So if you don't want to see spelling
+mistakes just close the Spelling dock window; similarly for annotations.
+You can always right click the dock splitter to get them back again.)
+
+<p>
+You can add or remove words from a local dictionary (in the file
+<tt>words.lst</tt> in the same directory as the PDF file). You can also
+change the dictionary language to any language for which you have
+dictionary support by clicking the <b>Language</b> button and choosing.
+(<font color="darkgreen">ViewPDF</font> will remember your choice
+between sessions.)
+
+<h3 id="dock">Dock Windows</h3>
+<p>The Controls, Spelling, and Annotation views are in dock
+widgets&mdash;these can be dragged into other dock areas (in which case
+they will reshape themselves as necessary), or dragged to float free.
+The Spelling and Annotations views can also be closed; right click a
+dock area splitter and check their checkbox to open them again.
+
+<h3 id="cli">Command Line Usage</h3>
+<p>Although <font color="darkgreen">ViewPDF</font> is a GUI program, if
+run from a console you can optionally specify a PDF file as its first
+argument, and optionally specify a page number to start at as its second
+argument.
